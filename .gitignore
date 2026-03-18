@@ -1,0 +1,6 @@
+# Arduino junk files to ignore
+.build/
+*.elf
+*.bin
+*.hex
+*.part
