@@ -22,3 +22,24 @@ The hardware data streams to a custom mobile dashboard that generates a dynamic 
 * **Rehydration Prescription:** Provides exact volume and electrolyte ratios. Utilizing the ACSM's 150% fluid replacement rule and calculating the sodium mass balance via `m_Na = ∫ (C_sweat · V_rate) dt`, the app prevents dilutional hyponatremia.
 * **Gastric Emptying Rate (GER) Optimization:** The prescription is paced into 15-minute "intake windows" (e.g., 250ml every 15 mins) to prevent GI distress and ensure the body's maximum absorption capacity (~1.2L/hr) is not exceeded.
 * **Thermal Regulation Alerts:** Analyzes evaporative cooling and the Second Law of Thermodynamics to suggest immediate interventions (e.g., ice-vest application) if the athlete is in a heat-trapped state.
+
+## Phase 1 Hardware: Bill of Materials (BOM)
+The current bare-metal prototype utilizes the following initial components:
+
+| Component | Description |
+| :--- | :--- |
+| **Brain** | ESP32-S3 DevKit |
+| **Thermometry** | MAX30205 Clinical Temperature Breakout Board |
+| **Diagnostic Tool** | Test Hook Clips |
+| **Tether** | 30 AWG Flexible Silicone Stranded Wire |
+| **Power/Data** | Standard USB-C Sync/Data Cable |
+*(Note: SHT45 Vapor Chamber and GSR electrodes to be integrated at a later stage).*
+
+## Wiring Schematic (Phase 1: I2C Temp Verification)
+
+| ESP32-S3 Pin | MAX30205 Pin | Function |
+| :--- | :--- | :--- |
+| `3V3` | `VCC` | Power (3.3V) |
+| `GND` | `GND` | Ground |
+| `[TBD]` | `SDA` | I2C Data |
+| `[TBD]` | `SCL` | I2C Clock |
