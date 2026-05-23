@@ -23,16 +23,6 @@ The hardware data streams to a custom mobile dashboard that generates a dynamic 
 * **Gastric Emptying Rate (GER) Optimization:** The prescription is paced into 15-minute "intake windows" (e.g., 250ml every 15 mins) to prevent GI distress and ensure the body's maximum absorption capacity (~1.2L/hr) is not exceeded.
 * **Thermal Regulation Alerts:** Analyzes evaporative cooling and the Second Law of Thermodynamics to suggest immediate interventions (e.g., ice-vest application) if the athlete is in a heat-trapped state.
 
----
-
-## 📸 Hardware Setup
-
-*(Place an image of your complete wired setup in your main folder and name it `full_hardware_setup.png`, then it will display below!)*
-
-![Complete Hardware Setup](full_hardware_setup.png)
-
----
-
 ## Phase 1 Hardware: Bill of Materials (BOM)
 The current bare-metal prototype utilizes the following components:
 
@@ -88,9 +78,3 @@ The first major milestone of this project was isolating and successfully communi
   * **< 1000:** Active Sweating (Electrolyte moisture detected)
 
   ![GSR Test Hook Setup](hardware/photos/phase1/1.2.gsr_sensor_wiring_setup.jpg)
-
----
-
-## 🔮 Next Steps
-* Merge the I2C array (Phase 1.3) with the calibrated GSR array (Phase 1.4) into a single master loop.
-* Implement Bluetooth Low Energy (BLE) to transmit real-time athlete data wirelessly.
