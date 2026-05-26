@@ -1,0 +1,35 @@
+# Doxyfile for Smart Sweat-Band API Documentation
+# Run: doxygen Doxyfile
+
+PROJECT_NAME           = "Smart Sweat-Band"
+PROJECT_NUMBER         = 1.5.0
+PROJECT_BRIEF          = "Wearable device for post-exercise recovery analytics"
+OUTPUT_DIRECTORY       = ./docs
+INPUT                  = ./firmware/phase1.5_sensor_fusion
+FILE_PATTERNS          = *.cpp *.h *.ino
+
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */test/* */.git/*
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+HTML_COLORSTYLE_HUE    = 220
+
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+GENERATE_RTF           = NO
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+
+SHOW_INCLUDE_FILES     = YES
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+SOURCE_BROWSER         = YES
+QUIET                  = YES
