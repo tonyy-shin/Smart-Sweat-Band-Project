@@ -1,6 +1,37 @@
-# Arduino junk files to ignore
+# Arduino & PlatformIO
 .build/
+.pio/
+.pioenvs/
+.piolibdeps/
+build/
+.vscode/.browse.c_cpp.db
+
+# Compiled & Binary Files
 *.elf
 *.bin
 *.hex
 *.part
+*.o
+*.a
+*.so
+
+# IDE & Editors
+.vscode/
+.idea/
+*.code-workspace
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Logs & Temporary Files
+*.log
+*.tmp
+.temp/
+
+# Secrets & Credentials
+.env
+.env.local
+secrets.h
+config_local.h
