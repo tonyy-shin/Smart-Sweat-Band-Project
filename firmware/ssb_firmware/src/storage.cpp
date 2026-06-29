@@ -69,3 +69,8 @@ bool storage_session_exists() {
 
     return file_size > 0;
 }
+
+void storage_delete_session()
+{
+  LittleFS.remove("/session.csv");
+}
