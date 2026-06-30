@@ -36,3 +36,4 @@ Thumbs.db
 secrets.h
 config_local.h
 .venv/
+SSB_architecture.md
