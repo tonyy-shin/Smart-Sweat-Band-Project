@@ -20,7 +20,7 @@ bool storage_open_session() {
         Serial.println("ERROR: Failed to open session file for writing");
         return false;
     }
-    session_file.println("timestamp_ms, skin_temp_c, humidity_pct, chamber_temp_c, gsr_raw");
+    session_file.println("timestamp_ms,skin_temp_c,humidity_pct,chamber_temp_c,gsr_raw");
     return true;
 }
 
