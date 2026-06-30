@@ -55,6 +55,7 @@ void state_machine_update() {
             if (button_a_pressed) {
                 button_a_pressed = false;
                 storage_close_session();
+                transfer_reset();
                 current_state = Device_State::TRANSFER_READY;
                 break;
             }
