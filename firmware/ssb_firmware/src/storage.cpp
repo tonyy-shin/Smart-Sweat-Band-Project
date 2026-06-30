@@ -14,12 +14,13 @@ bool storage_init() {
 }
 
 
-bool storage_open_session() {
+bool storage_open_session(int gsr_baseline) {
     session_file = LittleFS.open("/session.csv", "w");
     if (!session_file) {
         Serial.println("ERROR: Failed to open session file for writing");
         return false;
     }
+    session_file.printf("# gsr_baseline=%d\n", gsr_baseline);
     session_file.println("timestamp_ms,skin_temp_c,humidity_pct,chamber_temp_c,gsr_raw");
     return true;
 }

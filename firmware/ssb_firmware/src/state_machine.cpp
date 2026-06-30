@@ -41,9 +41,9 @@ void state_machine_update() {
                 button_a_pressed = false;
 
                 storage_init();
-                storage_open_session();
-                
                 gsr_calibrate();
+                storage_open_session(gsr_baseline);
+                storage_flush();
 
                 last_sample_ms = millis();
                 last_flush_ms = millis();
