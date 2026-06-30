@@ -40,3 +40,9 @@ config_local.h
 
 # document logs
 dev_logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
