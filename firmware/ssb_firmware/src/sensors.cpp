@@ -2,7 +2,13 @@
 
 static Adafruit_SHT4x sht4 = Adafruit_SHT4x();
 static const int GSR_PIN = A0;
-static const float CALIBRATION_OFFSET = 63.8;
+// The MAX30205 on this board is a clone stuck in extended data format: it
+// reports (true temp - 64 C) and ignores the DATA_FORMAT config bit
+// (bench-verified 2026-07-04: config reads back 0x00, raw word tracks ambient - 64).
+static const float MAX30205_EXT_FORMAT_OFFSET_C = 64.0;
+// TODO: -0.2 C is an empirically-estimated placeholder pending calibration
+// against a reference thermometer.
+static const float SKIN_TEMP_CAL_OFFSET_C = -0.2;
 
 int gsr_baseline = 0;
 
@@ -61,7 +67,7 @@ SensorReading sensors_read() {
         byte lsb = Wire.read();
         int16_t raw_temp = (msb << 8) | lsb;
         raw_temp_c = raw_temp * 0.00390625;
-        body_temp_c = raw_temp_c + CALIBRATION_OFFSET;
+        body_temp_c = raw_temp_c + MAX30205_EXT_FORMAT_OFFSET_C + SKIN_TEMP_CAL_OFFSET_C;
     }
 
     SensorReading reading;
