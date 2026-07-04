@@ -28,7 +28,15 @@ void sensors_init() {
 
     if (!sht4.begin()) {
         Serial.println("ERROR: Couldn't find SHT45 sensors");
+#ifdef SSB_DEBUG_SERIAL_BUTTON
+        // BENCH DEBUG — remove before ship: still halts, but says why every second.
+        while (1) {
+            Serial.println("ERROR: SHT45 not responding");
+            delay(1000);
+        }
+#else
         while (1) delay(1);
+#endif
     }
 
     sht4.setPrecision(SHT4X_HIGH_PRECISION);
@@ -36,10 +44,15 @@ void sensors_init() {
 
 
 void gsr_calibrate() {
+    // BENCH DEBUG — remove before ship: contact-wait skipped in bench builds, so
+    // baseline lands at the offline value (~2450). gsr_is_sweating() then never
+    // fires at the bench — fine, it gates no FSM transition.
+#ifndef SSB_DEBUG_SERIAL_BUTTON
     while (analogRead(GSR_PIN) > 2300) {
         delay(500);
         Serial.print(".");
     }
+#endif
 
     long sum = 0;
     for (int i = 0; i < 100; i++) {
