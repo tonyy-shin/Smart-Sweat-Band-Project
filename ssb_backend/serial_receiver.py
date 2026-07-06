@@ -20,6 +20,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Iterator
+import re
 
 import serial
 import serial.tools.list_ports
@@ -65,11 +66,11 @@ class TransferOutcome:
 # Pure Core Functions --------------------------------------------------------------------------------
 def _looks_like_ssb(line: str) -> bool:
     """
-    Check if a line looks like a valid SSB CSV line. 
+    Check if a line looks like a valid SSB CSV line.
     Filters out random serial junk for the device.
     """
     return (
-        line.startswith("#gsr_baseline")
+        bool(re.match(r"^#\s*gsr_baseline", line))
         or line == _HEADER_LINE
         or len(line.split(",")) == EXPECTED_COLS
     )

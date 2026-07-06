@@ -176,3 +176,11 @@ def test_device_error_no_save_no_confirm():
     assert outcome.saved_path is None
     assert outcome.confirmed is False
     assert CONFIRM_BYTE not in ser.writes
+
+
+def test_looks_like_ssb_gsr_baseline_with_space():
+    assert _looks_like_ssb("# gsr_baseline=2454") is True
+
+
+def test_looks_like_ssb_gsr_baseline_no_space():
+    assert _looks_like_ssb("#gsr_baseline=2454") is True
