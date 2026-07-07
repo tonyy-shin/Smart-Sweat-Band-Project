@@ -6,12 +6,12 @@ from ssb_backend.algorithm.rehydration import(
     FLUID_REPLACEMENT_FACTOR,
     INTAKE_WINDOW_S,
     MAX_INTAKE_PER_WINDOW_ML,
-    SCHEDULE_REMAINDER_EPSILON_ML,
     SWEAT_CALIBRATION_ML_PER_COUNT_S,
-    SWEAT_SODIUM_MG_PER_L, 
+    SWEAT_SODIUM_MG_PER_L,
     RehydrationResult,
     compute_rehydration_prescription,
 )
+from ssb_backend.history import save_session
 
 
 
@@ -30,6 +30,8 @@ def test_empty_sample():
         schedule=[],
         sample_count=0,
         status="insufficient_data",
+        electrolyte_tier="insufficient_data",
+        calibration_state={"volume": "provisional", "sodium": "provisional"},
     )
 
 
@@ -42,11 +44,13 @@ def test_single_samples():
         total_sodium_mg=None,
         schedule=[],
         sample_count=1,
-        status="insufficient_data"
+        status="insufficient_data",
+        electrolyte_tier="insufficient_data",
+        calibration_state={"volume": "provisional", "sodium": "provisional"},
     )
 
 
-def test_constant_proxy_volume():
+def test_constant_proxy_volume(tmp_path):
     # proxy = baseline - gsr_raw = 2000 - 1500 = 500, held flat for 200 s.
     # trapezoid integral of a flat line = proxy * duration_s = 500 * 200 = 100000.
     # sweat_volume_ml = 100000 * SWEAT_CALIBRATION_ML_PER_COUNT_S = 100.0
@@ -54,54 +58,63 @@ def test_constant_proxy_volume():
     duration_s = 200
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert result.sweat_volume_ml == pytest.approx(proxy * duration_s * SWEAT_CALIBRATION_ML_PER_COUNT_S)
 
 
-def test_fluid_replacement_is_150_percent():
+def test_fluid_replacement_is_150_percent(tmp_path):
     samples = [_sample(0, 1500), _sample(200_000, 1500)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert result.total_fluid_ml == pytest.approx(result.sweat_volume_ml * FLUID_REPLACEMENT_FACTOR)
 
 
-def test_sodium_from_sweat_volume():
+def test_sodium_from_sweat_volume(tmp_path):
     samples = [_sample(0, 1500), _sample(200_000, 1500)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert result.total_sodium_mg == pytest.approx((result.sweat_volume_ml / 1000.0) * SWEAT_SODIUM_MG_PER_L)
 
 
-def test_schedule_caps_at_300ml():
+def test_schedule_caps_at_300ml(tmp_path):
     # proxy = 1000 held for 300 s -> sweat_volume_ml = 1000*300*1e-3 = 300.0
     # total_fluid_ml = 300.0 * 1.5 = 450.0 -> full_windows=1 (300), remainder=150
     proxy = 1000
     duration_s = 300
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert len(result.schedule) == 2
     for window in result.schedule:
         assert window.volume_ml <= MAX_INTAKE_PER_WINDOW_ML
 
 
-def test_schedule_remainder_window():
+def test_schedule_remainder_window(tmp_path):
     # Target total_fluid_ml = 700 -> sweat_volume_ml = 700/1.5 = 466.666...,
     # a non-terminating decimal, so it can't be hit by any clean integer
     # proxy/duration pair. Instead, derive duration_s directly from the
     # target so total_fluid_ml lands within float precision of 700, then
-    # assert the trailing remainder against the *actual* returned
-    # total_fluid_ml rather than a hardcoded literal (judgment call, not a
-    # bug - see plan notes).
+    # assert the trailing remainder against the actual returned
+    # total_fluid_ml rather than a hardcoded literal.
     proxy = 1000
     duration_s = 700 / (proxy * SWEAT_CALIBRATION_ML_PER_COUNT_S * FLUID_REPLACEMENT_FACTOR)
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert result.total_fluid_ml == pytest.approx(700)
     assert len(result.schedule) == 3
@@ -110,14 +123,16 @@ def test_schedule_remainder_window():
     assert result.schedule[2].volume_ml == pytest.approx(result.total_fluid_ml - 2 * MAX_INTAKE_PER_WINDOW_ML)
 
 
-def test_schedule_exact_multiple_no_trailing_window():
+def test_schedule_exact_multiple_no_trailing_window(tmp_path):
     # proxy = 1000 held for 400 s -> sweat_volume_ml = 1000*400*1e-3 = 400.0
     # total_fluid_ml = 400.0 * 1.5 = 600.0 -> exactly 2 full windows, remainder = 0
     proxy = 1000
     duration_s = 400
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert result.total_fluid_ml == pytest.approx(600)
     assert len(result.schedule) == 2
@@ -125,7 +140,7 @@ def test_schedule_exact_multiple_no_trailing_window():
     assert result.schedule[1].volume_ml == pytest.approx(MAX_INTAKE_PER_WINDOW_ML)
 
 
-def test_sub_window_single_partial():
+def test_sub_window_single_partial(tmp_path):
     # proxy = 1000 held for 100 s -> sweat_volume_ml = 1000*100*1e-3 = 100.0
     # total_fluid_ml = 100.0 * 1.5 = 150.0 -> below MAX_INTAKE_PER_WINDOW_ML,
     # so exactly one partial window
@@ -133,26 +148,30 @@ def test_sub_window_single_partial():
     duration_s = 100
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert len(result.schedule) == 1
     assert result.schedule[0].volume_ml == pytest.approx(150)
 
 
-def test_window_start_times():
+def test_window_start_times(tmp_path):
     # Reuses the exact-600mL/2-window setup: i*INTAKE_WINDOW_S with integer
-    # i and INTAKE_WINDOW_S is exact (no float approx needed for start_s).
+    # i and INTAKE_WINDOW_S is exact.
     proxy = 1000
     duration_s = 400
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     for i, window in enumerate(result.schedule):
         assert window.start_s == i * INTAKE_WINDOW_S
 
 
-def test_sodium_allocated_proportionally():
+def test_sodium_allocated_proportionally(tmp_path):
     # Reuses the 700mL/3-window (300, 300, remainder) setup so the
     # proportionality check spans windows of different sizes, not just
     # equal ones.
@@ -160,7 +179,9 @@ def test_sodium_allocated_proportionally():
     duration_s = 700 / (proxy * SWEAT_CALIBRATION_ML_PER_COUNT_S * FLUID_REPLACEMENT_FACTOR)
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert sum(w.sodium_mg for w in result.schedule) == pytest.approx(result.total_sodium_mg)
 
@@ -169,33 +190,36 @@ def test_sodium_allocated_proportionally():
         assert window.sodium_mg / window.volume_ml == pytest.approx(expected_ratio)
 
 
-def test_schedule_volumes_sum_to_total():
+def test_schedule_volumes_sum_to_total(tmp_path):
     proxy = 1000
     duration_s = 300
     samples = [_sample(0, 2000 - proxy), _sample(duration_s * 1000, 2000 - proxy)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert sum(w.volume_ml for w in result.schedule) == pytest.approx(result.total_fluid_ml)
 
 
-def test_duplicate_timestamps_dropped():
+def test_duplicate_timestamps_dropped(tmp_path):
     samples = [
         _sample(0, 1900),
         _sample(1000, 1900),
-        _sample(1000, 1900),  # duplicate timestamp (should be dropped)
+        _sample(1000, 1900), # duplicate timestamp (should be dropped)
         _sample(2000, 1900),
     ]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert result.sample_count == 3
 
 
 def test_zero_duration_returns_insufficient_data():
     # All three timestamps identical -> dt==0 dedup drops two of three rows,
-    # collapsing to a single sample -> falls through the existing <2 guard
-    # (not a separate zero-duration branch).
+    # collapsing to a single sample -> falls through the existing <2 guard.
     samples = [_sample(500, 1900), _sample(500, 1850), _sample(500, 1800)]
 
     assert compute_rehydration_prescription(samples, gsr_baseline=2000) == RehydrationResult(
@@ -205,25 +229,31 @@ def test_zero_duration_returns_insufficient_data():
         schedule=[],
         sample_count=1,
         status="insufficient_data",
+        electrolyte_tier="insufficient_data",
+        calibration_state={"volume": "provisional", "sodium": "provisional"},
     )
 
 
-def test_zero_fluid_ok_empty_schedule():
+def test_zero_fluid_ok_empty_schedule(tmp_path):
     # >=2 distinct timestamps, but gsr_raw >= gsr_baseline at every point ->
     # proxy clamps to 0 everywhere -> integral is 0.
     samples = [_sample(0, 2000), _sample(1000, 2100)]
 
-    assert compute_rehydration_prescription(samples, gsr_baseline=2000) == RehydrationResult(
+    assert compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    ) == RehydrationResult(
         sweat_volume_ml=0.0,
         total_fluid_ml=0.0,
         total_sodium_mg=0.0,
         schedule=[],
         sample_count=2,
         status="ok",
+        electrolyte_tier="insufficient_data",
+        calibration_state={"volume": "provisional", "sodium": "provisional"},
     )
 
 
-def test_negative_proxy_clamped():
+def test_negative_proxy_clamped(tmp_path):
     # Middle sample spikes above baseline (gsr_raw=2500 > baseline=2000),
     # which would make proxy = 2000-2500 = -500 if unclamped. With the
     # max(..., 0) clamp, proxy at that point is 0, giving trapezoid
@@ -233,7 +263,30 @@ def test_negative_proxy_clamped():
     # sweat_volume_ml = -40.0 - a physically nonsensical negative volume.
     samples = [_sample(0, 1900), _sample(100_000, 2500), _sample(200_000, 1900)]
 
-    result = compute_rehydration_prescription(samples, gsr_baseline=2000)
+    result = compute_rehydration_prescription(
+        samples, gsr_baseline=2000, db_path=tmp_path / "ssb_history.db"
+    )
 
     assert result.sweat_volume_ml == pytest.approx(10.0)
     assert result.sweat_volume_ml >= 0
+
+
+def test_sodium_scaled_by_gsr_modifier(tmp_path):
+    db = tmp_path / "ssb_history.db"
+    # 3 baseline sessions -> mean baseline_intensity = 0.25 (>= MIN_BASELINE_SESSIONS)
+    for _ in range(3):
+        save_session({"gsr_drop_intensity": 0.25}, db_path=db)
+
+    # proxy = 2000 - 1000 = 1000 held 200 s -> sweat_volume_ml = 200.0
+    # current_intensity = (2000 - 1000) / 2000 = 0.5
+    # modifier = 0.5 / 0.25 = 2.0 -> tier "high", sodium doubled
+    samples = [_sample(0, 1000), _sample(200_000, 1000)]
+
+    result = compute_rehydration_prescription(samples, gsr_baseline=2000, db_path=db)
+
+    assert result.calibration_state["sodium"] == "gsr_adjusted"
+    assert result.calibration_state["volume"] == "provisional"
+    assert result.electrolyte_tier == "high"
+    assert result.total_sodium_mg == pytest.approx(
+        (result.sweat_volume_ml / 1000.0) * SWEAT_SODIUM_MG_PER_L * 2.0
+    )
