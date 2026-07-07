@@ -2,3 +2,6 @@ pytest
 pyserial
 numpy
 scipy
+fastapi
+uvicorn
+httpx
