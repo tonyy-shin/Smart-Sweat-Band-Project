@@ -47,7 +47,7 @@ def insufficient_data_result(samples, gsr_baseline) -> GsrElectrolyteResult | No
         return GsrElectrolyteResult(
             current_intensity=None,
             baseline_intensity=None,
-            modifier=None,
+            modifier=1.0,
             tier="insufficient_data",
             sessions_used=0,
             insufficient_baseline=True,
