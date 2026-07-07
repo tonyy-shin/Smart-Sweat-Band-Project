@@ -36,7 +36,7 @@ def test_empty_samples(tmp_path):
     assert compute_gsr_electrolyte_adjustment([], 2000, db_path=db) == GsrElectrolyteResult(
         current_intensity=None,
         baseline_intensity=None,
-        modifier=None,
+        modifier=1.0,
         tier="insufficient_data",
         sessions_used=0,
         insufficient_baseline=True,
@@ -51,7 +51,7 @@ def test_non_positive_gsr_baseline(tmp_path):
             _samples(1500), bad_baseline, db_path=db
         )
         assert result.current_intensity is None
-        assert result.modifier is None
+        assert result.modifier == 1.0
         assert result.tier == "insufficient_data"
 
 
