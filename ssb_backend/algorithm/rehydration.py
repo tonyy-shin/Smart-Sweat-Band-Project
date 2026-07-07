@@ -10,6 +10,8 @@ from __future__ import annotations
 import numpy as np
 from dataclasses import dataclass
 from typing import Literal
+from ssb_backend import history
+from ssb_backend.algorithm.electrolyte_intensity import compute_gsr_electrolyte_adjustment
 import logging
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,8 @@ class RehydrationResult:
     schedule: list[IntakeWindow]
     sample_count: int
     status: Literal["ok", "insufficient_data"]
+    electrolyte_tier: Literal["insufficient_data", "low", "typical", "high"]
+    calibration_state: dict[str, str]
 
 
 
@@ -68,6 +72,8 @@ def insufficient_data_result(sample_count: int) -> RehydrationResult | None:
             schedule=[],
             sample_count=sample_count,
             status="insufficient_data",
+            electrolyte_tier="insufficient_data",
+            calibration_state={"volume": "provisional", "sodium": "provisional"}
         )
     return None
 
@@ -91,12 +97,14 @@ def compute_volume_and_sodium(
         gsr_raw: np.ndarray,
         time_s: np.ndarray,
         gsr_baseline: int,
+        modifier: float,
     ) -> tuple[float, float, float]:
     proxy = [max(gsr_baseline - gsr, 0) for gsr in gsr_raw]
     integral = float(np.trapezoid(proxy, time_s)) # integrate proxy series over time_s using trapzoid rule
     sweat_volume_ml = float(integral * SWEAT_CALIBRATION_ML_PER_COUNT_S)
     total_fluid_ml = sweat_volume_ml * FLUID_REPLACEMENT_FACTOR
-    total_sodium_mg = (sweat_volume_ml / 1000.0) * SWEAT_SODIUM_MG_PER_L
+    
+    total_sodium_mg = (sweat_volume_ml / 1000.0) * SWEAT_SODIUM_MG_PER_L * modifier
     return sweat_volume_ml, total_fluid_ml, total_sodium_mg
 
 
@@ -126,6 +134,7 @@ def build_intake_schedule(total_fluid_ml: float, total_sodium_mg: float) -> list
 def compute_rehydration_prescription(
         samples: list[dict],
         gsr_baseline: int,
+        db_path=history.DEFAULT_DB_PATH,
     ) -> RehydrationResult:
     """
     Rehydration prescription entry point.
@@ -152,10 +161,15 @@ def compute_rehydration_prescription(
     guard = insufficient_data_result(sample_count)
     if guard is not None:
         return guard
+    
+    # get modifier and sodium_state
+    elec = compute_gsr_electrolyte_adjustment(samples, gsr_baseline, db_path)
+    modifier = elec.modifier
+    sodium_state = "provisional" if elec.insufficient_baseline else "gsr_adjusted"
 
     # get result values
     sweat_volume_ml, total_fluid_ml, total_sodium_mg = compute_volume_and_sodium(
-        gsr_raw, time_s, gsr_baseline
+        gsr_raw, time_s, gsr_baseline, modifier
     )
 
     # build schedule
@@ -167,6 +181,8 @@ def compute_rehydration_prescription(
             schedule=[],
             sample_count=sample_count,
             status="ok",
+            electrolyte_tier=elec.tier,
+            calibration_state={"volume": "provisional", "sodium": sodium_state}
         )
 
     schedule = build_intake_schedule(total_fluid_ml, total_sodium_mg)
@@ -178,5 +194,7 @@ def compute_rehydration_prescription(
         total_sodium_mg=total_sodium_mg,
         schedule=schedule,
         sample_count=sample_count,
-        status="ok"
+        status="ok",
+        electrolyte_tier=elec.tier,
+        calibration_state={"volume": "provisional", "sodium": sodium_state}
     )
