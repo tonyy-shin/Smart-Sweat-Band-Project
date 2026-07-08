@@ -26,8 +26,10 @@ client = TestClient(api.app)
 def _reset_latest():
     """The endpoint reads module state in-process; never let it leak."""
     api._latest_results = None
+    api._latest_samples = None
     yield
     api._latest_results = None
+    api._latest_samples = None
 
 
 # sample factory ----------------------------------------------------------------
@@ -217,6 +219,26 @@ def test_get_results_reflects_most_recent_session(tmp_path):
     assert body["timestamp"] == "2026-07-07T11:00:00"
     # The second run read the first run's row before writing its own.
     assert body["readiness"]["prior_session_count"] == 1
+
+
+def test_get_results_samples_before_any_session_returns_404():
+    resp = client.get("/results/samples")
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "No sessions recorded"
+
+
+def test_get_results_samples_returns_processed_samples(tmp_path):
+    db = tmp_path / "ssb_history.db"
+    samples = _session_samples()
+    api.run_pipeline(samples, gsr_baseline=2000, db_path=db)
+
+    resp = client.get("/results/samples")
+
+    assert resp.status_code == 200
+    # Flat list of parser-shape dicts, identical to what run_pipeline consumed.
+    assert resp.json() == samples
+
 
 
 def test_insufficient_samples_emit_and_label(tmp_path):
