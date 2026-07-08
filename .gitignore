@@ -46,3 +46,5 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+# SSB runtime data (SQLite history, saved session CSVs)
+ssb_backend/data/
