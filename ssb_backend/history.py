@@ -86,3 +86,23 @@ def get_session_count(db_path: str | Path = DEFAULT_DB_PATH) -> int:
     with closing(sqlite3.connect(db_path)) as conn, conn:
         conn.execute(_CREATE_TABLE_SQL)
         return conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+    
+
+def get_recent_sessions_with_timestamp(
+        limit: int = MAX_SESSIONS,
+        db_path: str | Path = DEFAULT_DB_PATH,
+) -> list[dict]:
+    """
+    Return most recent sessions ordered oldeest to newest.
+    Includes timestamp for front end dashboard.
+    """
+    with closing(sqlite3.connect(db_path)) as conn, conn:
+        conn.execute(_CREATE_TABLE_SQL)
+        rows = conn.execute(
+            "SELECT timestamp, session_json FROM sessions ORDER by id DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [
+        {"timestamp": ts, **json.loads(session_json)}
+        for ts, session_json in reversed(rows)
+    ]

@@ -26,8 +26,10 @@ client = TestClient(api.app)
 def _reset_latest():
     """The endpoint reads module state in-process; never let it leak."""
     api._latest_results = None
+    api._latest_samples = None
     yield
     api._latest_results = None
+    api._latest_samples = None
 
 
 # sample factory ----------------------------------------------------------------
@@ -219,6 +221,26 @@ def test_get_results_reflects_most_recent_session(tmp_path):
     assert body["readiness"]["prior_session_count"] == 1
 
 
+def test_get_results_samples_before_any_session_returns_404():
+    resp = client.get("/results/samples")
+
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "No sessions recorded"
+
+
+def test_get_results_samples_returns_processed_samples(tmp_path):
+    db = tmp_path / "ssb_history.db"
+    samples = _session_samples()
+    api.run_pipeline(samples, gsr_baseline=2000, db_path=db)
+
+    resp = client.get("/results/samples")
+
+    assert resp.status_code == 200
+    # Flat list of parser-shape dicts, identical to what run_pipeline consumed.
+    assert resp.json() == samples
+
+
+
 def test_insufficient_samples_emit_and_label(tmp_path):
     db = tmp_path / "ssb_history.db"
 
@@ -323,3 +345,52 @@ def test_timestamp_passthrough_to_history(tmp_path):
     with sqlite3.connect(db) as conn:
         stored = conn.execute("SELECT timestamp FROM sessions").fetchall()
     assert stored == [(ts,)]
+
+
+def test_get_history_returns_empty_list_when_no_sessions(monkeypatch, tmp_path):
+    db = tmp_path / "ssb_history.db"
+    monkeypatch.setattr(history, "DEFAULT_DB_PATH", db)
+
+    resp = client.get("/history")
+
+    assert resp.status_code == 200
+    assert resp.json() == []
+
+
+def test_get_history_returns_single_session(monkeypatch, tmp_path):
+    db = tmp_path / "ssb_history.db"
+    monkeypatch.setattr(history, "DEFAULT_DB_PATH", db)
+    ts = "2026-07-08T09:00:00"
+    result = api.run_pipeline(
+        _session_samples(), gsr_baseline=2000, db_path=db, timestamp=ts
+    )
+
+    resp = client.get("/history")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["timestamp"] == ts
+    assert body[0]["score"] == result.readiness.score
+
+
+def test_get_history_sliding_window_of_five(monkeypatch, tmp_path):
+    db = tmp_path / "ssb_history.db"
+    monkeypatch.setattr(history, "DEFAULT_DB_PATH", db)
+    for i in range(7):
+        history.save_session(
+            {"score": i, "thermal_slope": 0.0, "gsr_drop_intensity": 0.0,
+             "mean_sri": None, "peak_sri": None},
+            db_path=db,
+            timestamp=f"2026-07-0{i+1}T00:00:00",
+        )
+
+    resp = client.get("/history")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 5
+    assert [entry["score"] for entry in body] == [2, 3, 4, 5, 6]
+    assert body[0]["timestamp"] == "2026-07-03T00:00:00"
+    assert body[-1]["timestamp"] == "2026-07-07T00:00:00"
+

@@ -52,16 +52,39 @@ class SessionResults:
 # API ---------------------------------------------------------------------------
 app = FastAPI()
 _latest_results: SessionResults | None = None
+_latest_samples: list[dict] | None = None
 
 
 @app.get("/results")
 def get_results():
     """
-    GET / results handler.
+    GET /results handler.
     """
     if _latest_results is None:
         raise HTTPException(status_code=404, detail="No sessions recorded")
     return dataclasses.asdict(_latest_results)
+
+
+@app.get("/results/samples")
+def get_result_samples() -> list[dict]:
+    """
+    GET /results/samples handler.
+    
+    Raw persample time series from most recent session
+    """
+    if _latest_samples is None:
+        raise HTTPException(status_code=404,detail="No sessions recorded")
+    return _latest_samples
+
+
+@app.get("/history")
+def get_history() -> list[dict]:
+    """
+    GET /history handler.
+
+    Listing of past sessions (oldest to newest) for trend charts
+    """
+    return history.get_recent_sessions_with_timestamp(db_path=history.DEFAULT_DB_PATH)
 
 
 
@@ -80,6 +103,7 @@ def run_pipeline(
         gsr_baseline: None when missing '# gsr_baseline=' header
     """
     global _latest_results
+    global _latest_results, _latest_samples
 
     # resolve timestamp ----------------------------------------------------
     ts = timestamp or datetime.now().isoformat()
@@ -120,6 +144,7 @@ def run_pipeline(
         timestamp=ts,
     )
     _latest_results = session_result
+    _latest_samples = samples
     return session_result
 
 
