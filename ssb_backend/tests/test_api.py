@@ -163,21 +163,18 @@ def test_run_pipeline_reads_precede_history_write(tmp_path):
     assert history.get_session_count(db_path=db) == 4
 
 
-def test_double_compute_snapshot_consistency(tmp_path):
+def test_rehydration_uses_injected_electrolyte_result(tmp_path):
     db = tmp_path / "ssb_history.db"
-    # baseline intensity 0.25 vs current (2000-1000)/2000 = 0.5 -> modifier
-    # clamps to 2.0, tier "high", so divergence between the two electrolyte
-    # computations could not pass unnoticed.
+    # baseline intensity 0.25 vs current 0.5 -> modifier clamps to 2.0,
+    # tier "high", so a wrong/default elec could not pass unnoticed.
     _seed_sessions(db, 3, intensity=0.25)
 
     result = api.run_pipeline(_session_samples(), gsr_baseline=2000, db_path=db)
 
     assert result.electrolyte.tier == "high"
-    # Tier label consistency between the direct call and rehydration's
-    # internal recompute.
+    # run_pipeline computes elec once and injects it into rehydration,
+    # so tier and modifier agree by construction.
     assert result.rehydration.electrolyte_tier == result.electrolyte.tier
-    # Exact numeric identity, not approx: same snapshot + deterministic float
-    # ops means the internal modifier is bitwise equal to elec.modifier.
     assert result.rehydration.total_sodium_mg == (
         (result.rehydration.sweat_volume_ml / 1000.0)
         * SWEAT_SODIUM_MG_PER_L
