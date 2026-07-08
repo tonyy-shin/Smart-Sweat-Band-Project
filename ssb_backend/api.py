@@ -77,6 +77,16 @@ def get_result_samples() -> list[dict]:
     return _latest_samples
 
 
+@app.get("/history")
+def get_history() -> list[dict]:
+    """
+    GET /history handler.
+
+    Listing of past sessions (oldest to newest) for trend charts
+    """
+    return history.get_recent_sessions_with_timestamp(db_path=history.DEFAULT_DB_PATH)
+
+
 
 def run_pipeline(
         samples: list[dict],
