@@ -92,7 +92,9 @@ def run_pipeline(
     # run pipline ------------------------------------------------------------------
     # Has to be in this order because of degenerate baseline guards
     elec = compute_gsr_electrolyte_adjustment(samples, gsr_baseline,db_path=db_path)
-    rehydration = compute_rehydration_prescription(samples, gsr_baseline,db_path=db_path)
+    rehydration = compute_rehydration_prescription(
+        samples, gsr_baseline, db_path=db_path, elec=elec
+    )
     thermal = compute_thermal_recovery(samples,db_path=db_path)
     sweat_rate = compute_sweat_rate_index(samples)
     readiness = compute_recovery_readiness(
