@@ -11,7 +11,10 @@ import numpy as np
 from dataclasses import dataclass
 from typing import Literal
 from ssb_backend import history
-from ssb_backend.algorithm.electrolyte_intensity import compute_gsr_electrolyte_adjustment
+from ssb_backend.algorithm.electrolyte_intensity import (
+    GsrElectrolyteResult,
+    compute_gsr_electrolyte_adjustment,
+)
 import logging
 logger = logging.getLogger(__name__)
 
@@ -135,6 +138,7 @@ def compute_rehydration_prescription(
         samples: list[dict],
         gsr_baseline: int,
         db_path=history.DEFAULT_DB_PATH,
+        elec: GsrElectrolyteResult | None = None,
     ) -> RehydrationResult:
     """
     Rehydration prescription entry point.
@@ -163,7 +167,8 @@ def compute_rehydration_prescription(
         return guard
     
     # get modifier and sodium_state
-    elec = compute_gsr_electrolyte_adjustment(samples, gsr_baseline, db_path)
+    if elec is None:
+        elec = compute_gsr_electrolyte_adjustment(samples, gsr_baseline, db_path)
     modifier = elec.modifier
     sodium_state = "provisional" if elec.insufficient_baseline else "gsr_adjusted"
 
