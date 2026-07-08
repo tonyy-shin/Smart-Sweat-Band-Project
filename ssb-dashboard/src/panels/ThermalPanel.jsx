@@ -1,9 +1,9 @@
 import { T } from '../theme';
 import { Panel, StatTile, Badge, Stabilizing } from './shared';
-
-// NOTE: a full skin-temp time-series chart still needs a raw-samples endpoint
-// (GET /results has no per-sample data). The slope vector below only uses
-// current_slope / baseline_slope, which ARE in the response.
+import { useSamples } from '../hooks/useSamples';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
 const BASELINE_SESSIONS = 3; // mirrors MIN_BASELINE_SESSIONS in thermal.py
 
@@ -12,6 +12,33 @@ const RECOMMENDATION = {
   passive_rest: { text: 'passive rest is sufficient', dot: T.kelp },
   insufficient_data: { text: 'insufficient data', dot: T.inkMuted },
 };
+
+// Real skin-temp-over-time curve, sourced from GET /results/samples.
+function SkinTempTrend({ samples }) {
+  if (samples.length < 2) return null;
+  const t0 = samples[0].timestamp_ms;
+  const chartData = samples.map((s) => ({
+    t: ((s.timestamp_ms - t0) / 1000).toFixed(0),
+    skin_temp_c: s.skin_temp_c,
+  }));
+
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <ResponsiveContainer width="100%" height={90}>
+        <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke={T.hairline} strokeDasharray="3 3" />
+          <XAxis dataKey="t" stroke={T.inkMuted} tick={{ fontFamily: T.fonts.mono, fontSize: 10 }}
+                 label={{ value: 's', position: 'insideBottomRight', fontSize: 10, fill: T.inkMuted }} />
+          <YAxis stroke={T.inkMuted} tick={{ fontFamily: T.fonts.mono, fontSize: 10 }}
+                 width={36} domain={['auto', 'auto']} />
+          <Tooltip contentStyle={{ fontFamily: T.fonts.body, fontSize: 12 }} />
+          <Line type="monotone" dataKey="skin_temp_c" name="Skin Temp °C"
+                stroke={T.heat} dot={false} strokeWidth={2} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
 
 // Slope vector: projects skin-temp change over the next 5 min at each slope.
 // Down = cooling (good, hydration teal), up = warming (heat orange).
@@ -53,6 +80,7 @@ export default function ThermalPanel({ data }) {
   const { current_slope, baseline_slope, sessions_used,
           recommendation, insufficient_baseline } = data;
   const rec = RECOMMENDATION[recommendation] ?? RECOMMENDATION.insufficient_data;
+  const { status: samplesStatus, samples } = useSamples();
 
   return (
     <Panel title="Thermal recovery" accent={T.heat}>
@@ -63,6 +91,8 @@ export default function ThermalPanel({ data }) {
           unit={current_slope == null ? '' : '°C/min'}
         />
       </div>
+
+      {samplesStatus === 'ready' && <SkinTempTrend samples={samples} />}
 
       {current_slope != null && (
         <SlopeViz currentSlope={current_slope} baselineSlope={baseline_slope} />
