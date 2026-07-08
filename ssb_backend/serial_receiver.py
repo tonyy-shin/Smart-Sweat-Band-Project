@@ -26,6 +26,7 @@ import serial
 import serial.tools.list_ports
 
 from ssb_backend.parser import ParseResult, parse_session_csv
+from ssb_backend.api import run_pipeline
 
 import logging
 logger = logging.getLogger(__name__)
@@ -270,9 +271,16 @@ def run(poll_interval_s: float = POLL_INTERVAL_S) -> None:
 
             
 def _run_algorithm_pipeline(outcome: TransferOutcome) -> None:
-    # TODO: invoke ssb_backend.algorithm once algorithm is written.
-    n = len(outcome.parse_result.samples) if outcome.parse_result else 0
-    logger.info("TODO: run algorithm on %d samples", n)
+    if outcome.parse_result is None or not outcome.parse_result.samples:
+        logger.info("Transfer saved but no parsable samples; skipping pipeline")
+        return
+    try:
+        run_pipeline(
+            outcome.parse_result.samples,
+            outcome.parse_result.gsr_baseline,
+        )
+    except Exception:
+        logger.exception("Algorithm pipeline failed; continuing scan")
 
 
 
