@@ -47,6 +47,8 @@ void state_machine_update() {
 
                 last_sample_ms = millis();
                 last_flush_ms = millis();
+                // drop bounces/presses that arrived during calibration
+                button_a_pressed = false;
                 current_state = Device_State::RECORDING;
             }
             break;
@@ -73,6 +75,8 @@ void state_machine_update() {
             break;
 
         case Device_State::TRANSFER_READY:
+            // button does nothing while waiting for the host
+            button_a_pressed = false;
             if (transfer_update()) {
                 current_state = Device_State::IDLE;
             }

@@ -18,6 +18,10 @@ static Transfer_State sub_state = Transfer_State::AWAIT_REQUEST;
 
 
 void transfer_reset() {
+    // discard 'R's that queued while not listening
+    while (Serial.available() > 0) {
+        Serial.read();
+    }
     sub_state = Transfer_State::AWAIT_REQUEST;
 }
 
