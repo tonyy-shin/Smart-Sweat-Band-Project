@@ -37,10 +37,6 @@ secrets.h
 config_local.h
 .venv/
 
-
-# document logs
-dev_logs/
-
 # Python
 __pycache__/
 *.py[cod]
