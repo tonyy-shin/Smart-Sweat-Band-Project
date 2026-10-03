@@ -116,3 +116,25 @@ yet:
 - Fix the cut-off chart labels
 - Still pending: GSR sweat stress test, vapor chamber calibration, Stage 2
   wearable build
+
+---
+
+## Photos
+
+Bench setup during today's end-to-end test: XIAO ESP32S3 on the breadboard,
+Button A and the green status LED (solid = recording), SHT45/MAX30205 on I2C,
+and the GSR finger straps connected through the test hook clips.
+
+![Bench setup, top view](photos/2026-10-02_bench_top_1.jpeg)
+![Bench setup, top view 2](photos/2026-10-02_bench_top_2.jpeg)
+![Bench setup with backend running](photos/2026-10-02_bench_angle_1.jpeg)
+![Bench setup with backend running 2](photos/2026-10-02_bench_angle_2.jpeg)
+
+### Dashboard
+
+First real session on the dashboard. The numbers aren't meaningful yet
+(sensor in room air, GSR not reading, test runs in history), but every panel
+filled in from real board data.
+
+![Dashboard: score, rehydration, thermal, sweat rate](photos/2026-10-02_dashboard_main.png)
+![Dashboard: recovery plan and session history](photos/2026-10-02_dashboard_plan_history.png)
